@@ -707,7 +707,7 @@
 
 <!--登录框-->
 <div id="loginDialog" class="modal login-dialog in" aria-hidden="false" style="display: none">
-    <div class="modal-header"><a class="close" onclick="hideLoginDialog()" data-dismiss="modal">×</a>
+    <div class="modal-header">
         <h3>Sign in <small></small></h3></div>
     <div class="modal-body">
         <div class="form-horizontal">
@@ -729,8 +729,7 @@
     </div>
     <div class="modal-footer">
         <div class="error-message login-error-message" style="float: left;"></div>
-        <button class="r-btn" e2e-tag="modal-cancel" onclick="hideLoginDialog()"><i class="fa fa-remove"></i><span>Cancel</span><span class="r-btn-indicator" aria-hidden="true"
-                                                                                                                                      style="display: none;"></span></button>
+
         <button class="r-btn r-btn-primary" onclick="login()" e2e-tag="modal-ok"><i class="fa fa-plus"></i><span>Login</span><span class="r-btn-indicator" aria-hidden="true"
                                                                                                                                    style="display: none;"></span></button>
     </div>
@@ -799,6 +798,69 @@
         <div id="notification-message">Sending request</div>
     </div>
     <div id="alt-notification" class="alt-notification-area" style="display: none"></div>
+</div>
+
+<!--用户信息-->
+<div id="userInfoDialog" class="modal login-dialog in" aria-hidden="false" style="display: none">
+    <div class="modal-header"><a class="close" onclick="hideUserInfoDialog()" data-dismiss="modal">×</a>
+        <h3>User Info <small></small></h3></div>
+    <div class="modal-body">
+        <div class="form-horizontal">
+            <fieldset>
+                <div class="control-group">
+                    <label class="control-label" style="width: 80px;"> <span class="gwt-InlineHTML"> username </span> </label>
+                    <div class="controls" style="margin-left: 100px;">
+                        <input type="text" class="username-message" maxlength="256" style="width: 280px;" readonly>
+                    </div>
+                    <label class="control-label" style="margin-top:15px;width: 80px;"> <span class="gwt-InlineHTML"> Token </span> </label>
+                    <div class="controls" style="margin-top:20px;margin-left: 100px;">
+                        <input type="text" class="token-message" maxlength="256" style="width: 280px;" readonly>
+                        <button class="r-btn" onclick="copyToken()">
+                            <i class="fa fa-add"></i><span>Copy</span>
+                        </button>
+                        <button class="r-btn" onclick="newToken()">
+                            <i class="fa fa-add"></i><span>New</span>
+                        </button>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="error-message login-error-message" style="float: left;"></div>
+        <button class="r-btn" e2e-tag="modal-cancel" onclick="hideUserInfoDialog()"><i class="fa fa-remove"></i><span>Cancel</span><span class="r-btn-indicator" aria-hidden="true"
+                                                                                                                                      style="display: none;"></span></button>
+    </div>
+</div>
+<!--修改密码-->
+<div id="changePasswordDialog" class="modal login-dialog in" aria-hidden="false" style="display: none">
+    <div class="modal-header"><a class="close" onclick="hideChangePasswordDialog()" data-dismiss="modal">×</a>
+        <h3>Change Password <small></small></h3></div>
+    <div class="modal-body">
+        <div class="form-horizontal">
+            <fieldset>
+                <div class="control-group">
+                    <label class="control-label"> <span class="gwt-InlineHTML"> password </span> </label>
+                    <div class="controls">
+                        <input type="password" class="username" id="old_password" maxlength="256" placeholder="Enter old password" >
+                        <div class="error-message"></div>
+                    </div>
+                    <label class="control-label" style="margin-top:15px;"> <span class="gwt-InlineHTML"> new password </span> </label>
+                    <div class="controls" style="margin-top:20px;">
+                        <input type="password" class="password" id="new_password" maxlength="256" autocomplete="new-password" placeholder="Enter nwe password">
+                        <div class="error-message"></div>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <div class="error-message login-error-message" style="float: left;"></div>
+        <button class="r-btn" e2e-tag="modal-cancel" onclick="hideChangePasswordDialog()"><i class="fa fa-remove"></i><span>Cancel</span><span class="r-btn-indicator" aria-hidden="true"
+                                                                                                                                          style="display: none;"></span></button>
+        <button class="r-btn r-btn-primary" onclick="changePassword()" e2e-tag="modal-ok"><i class="fa fa-plus"></i><span>Ok</span><span class="r-btn-indicator" aria-hidden="true"
+                                                                                                                                   style="display: none;"></span></button>
+    </div>
 </div>
 
 <script  type="text/javascript">

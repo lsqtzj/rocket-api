@@ -2,6 +2,8 @@ package com.github.alenfive.rocketapi.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.alenfive.rocketapi.datasource.DataSourceManager;
+import com.github.alenfive.rocketapi.entity.SysUser;
 import com.github.alenfive.rocketapi.entity.vo.LoginVo;
 import com.github.alenfive.rocketapi.extend.IUserAuthorization;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,8 @@ import java.util.Base64;
 @Component
 public class LoginService {
 
+    @Autowired
+    DataSourceManager dataSourceManager;
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -36,10 +40,18 @@ public class LoginService {
             return null;
         }
         try {
-            LoginVo loginVo = objectMapper.readValue(Base64.getDecoder().decode(token), LoginVo.class);
-            String user = userAuthorization.validate(loginVo.getUsername(), loginVo.getPassword());
-            return user;
-        } catch (IOException e) {
+            SysUser qsysUser = dataSourceManager.getStoreApiDataSource().
+                    listByEntity(SysUser.builder()
+                            .token(token)
+                            .build())
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            if (qsysUser!=null){
+                return qsysUser.getName();
+            }
+            return null;
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
@@ -48,12 +60,26 @@ public class LoginService {
     /**
      * 生成token
      */
-    public String getToken(LoginVo loginVo) throws JsonProcessingException {
-        String user = userAuthorization.validate(loginVo.getUsername(), loginVo.getPassword());
-        if (StringUtils.isEmpty(user)){
-            return null;
+    public String getToken(LoginVo loginVo){
+        try {
+            String user = userAuthorization.validate(loginVo.getUsername(), loginVo.getPassword());
+            if (StringUtils.isEmpty(user)){
+                return null;
+            }
+            SysUser qsysUser = dataSourceManager.getStoreApiDataSource().
+                    listByEntity(SysUser.builder()
+                            .name(loginVo.getUsername())
+                            .password(loginVo.getPassword())
+                            .build())
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            if (qsysUser!=null){
+                return qsysUser.getToken();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        String token = new String(Base64.getEncoder().encode(objectMapper.writeValueAsBytes(loginVo)));
-        return token;
+        return null;
     }
 }

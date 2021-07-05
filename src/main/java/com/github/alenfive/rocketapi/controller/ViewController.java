@@ -2,12 +2,15 @@ package com.github.alenfive.rocketapi.controller;
 
 import com.github.alenfive.rocketapi.config.RocketApiProperties;
 import com.github.alenfive.rocketapi.datasource.DataSourceManager;
+import com.github.alenfive.rocketapi.entity.ApiResult;
+import com.github.alenfive.rocketapi.service.LoginService;
 import com.github.alenfive.rocketapi.utils.PackageUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -31,7 +34,7 @@ public class ViewController {
     private String service;
 
     @GetMapping
-    public String index(Model model, HttpServletRequest request){
+    public String index(Model model,HttpServletRequest request){
         model.addAttribute("dataSourceList",dataSourceManager.getDialectMap().keySet());
         model.addAttribute("service", service);
         model.addAttribute("configEnabled",properties.isConfigEnabled());

@@ -8,10 +8,7 @@ import com.github.alenfive.rocketapi.datasource.DataSourceDialect;
 import com.github.alenfive.rocketapi.datasource.DataSourceManager;
 import com.github.alenfive.rocketapi.entity.*;
 import com.github.alenfive.rocketapi.entity.vo.*;
-import com.github.alenfive.rocketapi.extend.ApiInfoContent;
-import com.github.alenfive.rocketapi.extend.IApiDocSync;
-import com.github.alenfive.rocketapi.extend.IScriptEncrypt;
-import com.github.alenfive.rocketapi.extend.IUserAuthorization;
+import com.github.alenfive.rocketapi.extend.*;
 import com.github.alenfive.rocketapi.function.IFunction;
 import com.github.alenfive.rocketapi.script.IScriptParse;
 import com.github.alenfive.rocketapi.service.LoginService;
@@ -96,17 +93,24 @@ public class ApiController {
     private DataSourceManager dataSourceManager;
 
     @Autowired
+    private IApiInfoCache apiInfoCache;
+
+    @Autowired
     private Map<String,Object> cache = new ConcurrentHashMap<>();
 
     /**
      * LOAD API LIST
+     *  @return
      */
     @GetMapping("/api-list")
-    public ApiResult getPathList(boolean isDb) throws Exception {
+    public ApiResult getPathList(boolean isDb,HttpServletRequest request) throws Exception {
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         List<ApiInfo> result = mappingFactory.getPathList(isDb).stream()
                 .sorted(Comparator.comparing(ApiInfo::getName).thenComparing(ApiInfo::getFullPath))
                 .collect(Collectors.toList());
-
 
         result = result.stream().map(item->{
             ApiInfo apiInfo = new ApiInfo();
@@ -121,7 +125,11 @@ public class ApiController {
      * 单个获取
      */
     @GetMapping("/api-info/{id}")
-    public ApiResult getPathList(@PathVariable String id) throws Exception {
+    public ApiResult getPathList(@PathVariable String id,HttpServletRequest request) throws Exception {
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         ApiInfo apiInfo = mappingFactory.getPathList(false).stream().filter(item->item.getId().equals(id)).findFirst().orElse(null);
 
         if (apiInfo == null || StringUtils.isEmpty(apiInfo.getScript())){
@@ -138,7 +146,11 @@ public class ApiController {
      * 历史记录查询
      */
     @GetMapping("/api-info/last")
-    public ApiResult lastApiInfo(String apiInfoId,Integer pageSize,Integer pageNo) throws Exception {
+    public ApiResult lastApiInfo(String apiInfoId,Integer pageSize,Integer pageNo,HttpServletRequest request) throws Exception {
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         if (StringUtils.isEmpty(apiInfoId)){
             return ApiResult.success(null);
         }
@@ -170,7 +182,22 @@ public class ApiController {
             if (!StringUtils.isEmpty(apiInfo.getScript())){
                 apiInfo.setScript(scriptEncrypt.encrypt(apiInfo.getScript()));
             }
-            return ApiResult.success(mappingFactory.saveApiInfo(apiInfo));
+
+            RefreshMapping refreshMapping = new RefreshMapping();
+
+            //更新时，历史记录为缓存记录
+            if (!StringUtils.isEmpty(apiInfo.getId())){
+                ApiInfo oldApiInfo = apiInfoCache.getAll().stream().filter(item->item.getId().equals(apiInfo.getId())).findFirst().orElse(null);
+                refreshMapping.setOldMapping(MappingVo.builder().method(oldApiInfo.getMethod()).fullPath(oldApiInfo.getFullPath()).build());
+            }
+
+            String apiInfoId = mappingFactory.saveApiInfo(apiInfo);
+
+            refreshMapping.setNewMapping(MappingVo.builder().method(apiInfo.getMethod()).fullPath(apiInfo.getFullPath()).build());
+            //触发刷新
+            apiInfoCache.refreshNotify(refreshMapping);
+
+            return ApiResult.success(apiInfoId);
         }catch (Exception e){
             e.printStackTrace();
             return ApiResult.fail(e.getMessage());
@@ -252,7 +279,17 @@ public class ApiController {
         }
 
         try {
+
+            ApiInfo oldApiInfo = apiInfoCache.getAll().stream().filter(item->item.getId().equals(apiInfo.getId())).findFirst().orElse(null);
+
+            RefreshMapping refreshMapping = new RefreshMapping();
+            refreshMapping.setOldMapping(MappingVo.builder().method(oldApiInfo.getMethod()).fullPath(oldApiInfo.getFullPath()).build());
+
             mappingFactory.deleteApiInfo(apiInfo);
+
+            //刷新通知
+            apiInfoCache.refreshNotify(refreshMapping);
+
             return ApiResult.success(null);
         }catch (Exception e){
             e.printStackTrace();
@@ -373,8 +410,11 @@ public class ApiController {
      * 查询最近一次模拟数据
      */
     @GetMapping("/api-example/last")
-    public ApiResult lastApiExample(String apiInfoId,Integer pageSize,Integer pageNo) throws Exception {
-
+    public ApiResult lastApiExample(String apiInfoId,Integer pageSize,Integer pageNo,HttpServletRequest request) throws Exception {
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         List<ApiExample> result = mappingFactory.listApiExampleScript(apiInfoId,pageSize,pageNo);
         result.forEach(item->{
             if (!StringUtils.isEmpty(item.getResponseBody())){
@@ -392,7 +432,7 @@ public class ApiController {
      * 删除模拟数据
      */
     @DeleteMapping("/api-example")
-    private ApiResult deleteExampleList(@RequestBody DeleteExamleReq deleteExamleReq, HttpServletRequest request) throws Exception {
+    private ApiResult deleteExampleList(@RequestBody DeleteExamleReq deleteExamleReq, HttpServletRequest request) {
         String user = loginService.getUser(request);
         if(StringUtils.isEmpty(user)){
             return ApiResult.fail("Permission denied");
@@ -405,7 +445,7 @@ public class ApiController {
      * 用户登录
      */
     @PostMapping("/login")
-    public ApiResult login(@RequestBody LoginVo loginVo, HttpServletRequest request, HttpServletResponse response) throws JsonProcessingException {
+    public ApiResult login(@RequestBody LoginVo loginVo, HttpServletRequest request, HttpServletResponse response)  {
         String user = userAuthorization.validate(loginVo.getUsername(), loginVo.getPassword());
         if (!StringUtils.isEmpty(user)){
             return ApiResult.success(loginService.getToken(loginVo));
@@ -413,7 +453,45 @@ public class ApiController {
 
         return ApiResult.fail("Incorrect username or password");
     }
+    /**
+     * 验证登录
+     */
+    @PostMapping("/validate")
+    public ApiResult validate(@RequestBody LoginVo loginVo,HttpServletRequest request,HttpServletResponse response) throws JsonProcessingException {
+        String user = userAuthorization.validateToken(loginVo.getUsername(), loginVo.getToken());
+        if (!StringUtils.isEmpty(user)){
+            return ApiResult.success(loginVo.getToken());
+        }
 
+        return ApiResult.fail("Incorrect username or token");
+    }
+    /**
+     * 生成新的Token
+     */
+    @PostMapping("/newtoken")
+    public ApiResult newtoken(@RequestBody LoginVo loginVo,HttpServletRequest request,HttpServletResponse response) throws JsonProcessingException {
+        String user = userAuthorization.newToken(loginVo.getUsername(), loginVo.getToken());
+        if (!StringUtils.isEmpty(user)){
+            return ApiResult.success(loginVo.getToken());
+        }
+        return ApiResult.fail("Incorrect username or token");
+    }
+    /**
+     * 修改密码
+     */
+    @PostMapping("/changepassword")
+    public ApiResult changepassword(@RequestBody cPasswordVo loginVo,HttpServletRequest request,HttpServletResponse response) throws JsonProcessingException {
+        String user = userAuthorization.validate(loginVo.getUsername(), loginVo.getOld_password());
+        if (!StringUtils.isEmpty(user)){
+           String m=  userAuthorization.changepassword(loginVo);
+           if (m=="Ok") {
+               return ApiResult.success("Password complete modification");
+           }else {
+               return ApiResult.fail("Password modification failed, please try again");
+           }
+        }
+        return ApiResult.fail("Incorrect username or password");
+    }
     /**
      * 注销登录
      */
@@ -426,17 +504,24 @@ public class ApiController {
      * API DOC 同步
      */
     @GetMapping("/api-doc-push")
-    public ApiResult apiDocPush(String apiInfoId) throws Exception {
+    public ApiResult apiDocPush(String apiInfoId,HttpServletRequest request) throws Exception {
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         Collection<ApiInfo> apiInfos = mappingFactory.getPathList(false);
         String result = null;
+        List<ApiDirectory> directoryList = mappingFactory.loadDirectoryList(false);
+        List<DocApi> docsInfoList = null;
         if (!StringUtils.isEmpty(apiInfoId)){
+
             ApiInfo apiInfo = apiInfos.stream().filter(item->item.getId().equals(apiInfoId)).findFirst().orElse(null);
-            result = apiDocSync.sync(apiInfo,buildLastApiExample(apiInfo.getId()));
+            ApiExample apiExample = buildLastApiExample(apiInfo.getId());
+            docsInfoList = Arrays.asList(new DocApi(apiInfo,apiExample));
         }else{
-            for(ApiInfo apiInfo : apiInfos){
-                result = apiDocSync.sync(apiInfo,buildLastApiExample(apiInfo.getId()));
-            }
+            docsInfoList = apiInfos.stream().map(item->new DocApi(item,buildLastApiExample(item.getId()))).collect(Collectors.toList());
         }
+        result = apiDocSync.sync(new DocsInfo(directoryList,docsInfoList));
         return ApiResult.success(result);
     }
 
@@ -479,7 +564,8 @@ public class ApiController {
 
     /**
      * 动态配置修改
-     * @param params
+     * @param configContext
+     * @param request
      * @return
      */
     @PostMapping("/api-config")
@@ -488,7 +574,6 @@ public class ApiController {
         if(StringUtils.isEmpty(user)){
             return ApiResult.fail("Permission denied");
         }
-
         try {
             mappingFactory.saveApiConfig(configContext);
         } catch (Exception e) {
@@ -502,7 +587,11 @@ public class ApiController {
      * @return
      */
     @GetMapping("/directory/list")
-    public ApiResult directoryList(){
+    public ApiResult directoryList(HttpServletRequest request){
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         return ApiResult.success(mappingFactory.loadDirectoryList(false).stream()
                 .sorted(Comparator.comparing(ApiDirectory::getName).thenComparing(ApiDirectory::getPath))
                 .collect(Collectors.toList()));
@@ -553,7 +642,11 @@ public class ApiController {
      * 自动完成，类型获取
      */
     @GetMapping("/completion-items")
-    public ApiResult provideCompletionTypes() throws Exception {
+    public ApiResult provideCompletionTypes(HttpServletRequest request) throws Exception {
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         String cacheKey = "completion-items-cache";
         CompletionResult result = null;
         if ((result = (CompletionResult) cache.get(cacheKey)) != null){
@@ -638,7 +731,11 @@ public class ApiController {
      * 自动完成，方法解析
      */
     @PostMapping("/completion-clazz")
-    public ApiResult provideCompletionItems(@RequestBody ProvideCompletionReq completionReq){
+    public ApiResult provideCompletionItems(@RequestBody ProvideCompletionReq completionReq,HttpServletRequest request){
+        String user = loginService.getUser(request);
+        if(StringUtils.isEmpty(user)){
+            return ApiResult.fail("Permission denied");
+        }
         try {
             Class clazz = Class.forName(completionReq.getClazz());
             return ApiResult.success(buildMethod(clazz));

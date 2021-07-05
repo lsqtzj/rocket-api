@@ -43,6 +43,9 @@ let remoteSyncUrl = baseUrl + "/remote-sync";
 //登录操作
 let loginUrl = baseUrl + "/login";
 let logoutUrl = baseUrl + "/logout";
+let validateUrl = baseUrl + "/validate";
+let newtokenUrl = baseUrl + "/newtoken";
+let changepasswordUrl = baseUrl + "/changepassword";
 
 //配置操作
 let getApiConfigUrl = baseUrl + "/api-config";
@@ -160,14 +163,34 @@ $(function(){
     }else{
         rocketUser = JSON.parse(localStorage.getItem("rocketUser"));
     }
+    showSendNotify("login ...");
+    $.ajax({
+        type: "post",
+        url: validateUrl,
+        contentType : "application/json",
+        data: JSON.stringify(rocketUser.user),
+        success: function (data) {
+            data = unpackResult(data);
+            if (data.code !=200){
+                showLoginDialog();
+                return;
+            }
+            $("#top-section .login-info .token").text(data.msg);
+            loadPage();
+        },complete:function (req,data) {
+            hideSendNotify();
+        }
+    });
+});
+function loadPage(){
     $("#loader").hide();
-    //加载API列表
-    loadApiList(false);
     loadEvent();
     initUser();
     initPanel();
     versionCheck();
     initCompletionItems();
+    //加载API列表
+    loadApiList(false);
 
     editorTextarea = monaco.editor.create(document.getElementById('monaco-editor'), {
         language: languageName,
@@ -285,9 +308,7 @@ $(function(){
             enabled: false // 关闭小地图
         }
     });
-
-});
-
+}
 
 function loadHistoryScrollEvent() {
     $("#history-api-section .records").unbind("scroll").bind("scroll", function (e) {
@@ -413,7 +434,7 @@ function copyApi(e,id) {
             cApi = item;
             return false;
         }
-    })
+    });
     delete cApi.id;
     cApi.name = (cApi.name?cApi.name:cApi.path) +"-Copy"
     cApi.path = cApi.path+"-TEMP-"+uuid();
@@ -1037,40 +1058,40 @@ function buildApiDirectory(directoryList,dirId,collapsed){
 }
 
 function buildApiTree(directoryList,apiList,collapsed) {
-    $(".authenticated").html("");
-    $("#repository .api-counter").text("["+apiList.length+"]");
+    if(apiList){
+        $(".authenticated").html("");
+        $("#repository .api-counter").text("["+apiList.length+"]");
 
-    buildApiDirectory(directoryList,null,collapsed);
+        buildApiDirectory(directoryList,null,collapsed);
 
-    $.each(apiList,function(index,item){
-        $("#directory-id-"+item.directoryId).append(buildApiDom(item));
-    });
-
+        $.each(apiList,function(index,item){
+            $("#directory-id-"+item.directoryId).append(buildApiDom(item));
+        });
+    }
 }
 
 function loadApiList(isDb,callback) {
-
-    //拉取目录信息
-    $.getJSON(loadApiListUrl+"?isDb="+(isDb?true:false),function (data) {
-        data = unpackResult(data);
-        gdata.apiList = data.data;
-
-        $.getJSON(directoryListUrl,function (data) {
+    if (rocketUser.user.token){
+        //拉取目录信息
+        $.getJSON(loadApiListUrl+"?isDb="+(isDb?true:false),function (data) {
             data = unpackResult(data);
-            gdata.directoryList = data.data;
+            gdata.apiList = data.data;
 
-            buildApiTree(gdata.directoryList,gdata.apiList,"collapsed");
-            loadCurrApi();
-            if (callback){
-                callback();
-            }
+            $.getJSON(directoryListUrl,function (data) {
+                data = unpackResult(data);
+                gdata.directoryList = data.data;
+
+                buildApiTree(gdata.directoryList,gdata.apiList,"collapsed");
+                loadCurrApi();
+                if (callback){
+                    callback();
+                }
+            })
+
         })
-
-    })
-
-
-
-
+    }else{
+        showLoginDialog();
+    }
 }
 
 function unpackResult(data){
@@ -1317,7 +1338,7 @@ function buildHeaderJson(headerArrs) {
         if (split == -1)return;
         let key = item.substring(0,split);
         let value = item.substring(split + 1);
-        headers[key] = encodeURI(value);
+        headers[key] = value;
     })
     return headers;
 }
@@ -1351,6 +1372,7 @@ function requestExample(url,ableRedirect){
             let responseHeader = buildHeaderJson(req.getAllResponseHeaders().split("\r\n"));
             let status = req.status;
             let currTime = new Date().getTime();
+            let diff = currTime-startTime;
             currExample = {
                 apiInfoId:$("#editor-section .api-info-id").val(),
                 url:url,
@@ -1360,7 +1382,7 @@ function requestExample(url,ableRedirect){
                 responseHeader:JSON.stringify(responseHeader),
                 responseBody:req.responseText,
                 status:status,
-                elapsedTime:(currTime-startTime),
+                elapsedTime:diff,
                 options:"{}"
             }
 
@@ -1374,6 +1396,7 @@ function requestExample(url,ableRedirect){
 
             setResponseHeader(responseHeader)
             $("#response #responseBody").text(formatJson(req.responseText));
+            $("#response .el-time").html("<span title=\""+diff+"ms\">Elapsed time: "+diff+"ms</span>")
         }});
 }
 
@@ -1749,15 +1772,94 @@ function showEditorPanel() {
 function hideLoginDialog() {
     $("#loginDialog").hide();
     $("#modal-backdrop").hide();
+    loadPage();
 }
 
 function showLoginDialog() {
+    $("#loader").show();
     $("#loginDialog .login-error-message").text("");
     $("#loginDialog").show();
     $("#modal-backdrop").show();
 }
-
-
+function hideUserInfoDialog(){
+    $("#userInfoDialog").hide();
+    $("#modal-backdrop").hide();
+}
+function showUserInfoDialog(){
+    $("#userInfoDialog .username-message").val(rocketUser.user.username);
+    $("#userInfoDialog .token-message").val(rocketUser.user.token);
+    $("#userInfoDialog").show();
+    $("#modal-backdrop").show();
+}
+function copyToken(){
+    try {
+        $("#userInfoDialog .token-message").select();
+        var result = document.execCommand('copy');
+        showSendNotify("Copy token is complete");
+        setTimeout(hideSendNotify, 2000);
+        return result;
+    }
+     catch (err) {
+      console.log(err);
+      return false;
+  }
+}
+function newToken(){
+showSendNotify("new token ...");
+    $.ajax({
+        type: "post",
+        url: newtokenUrl,
+        contentType : "application/json",
+        data: JSON.stringify(rocketUser.user),
+        success: function (data) {
+            data = unpackResult(data);
+            if (data.code !=200){
+                openMsgModal(data.msg);
+                return;
+            }
+            rocketUser.user.token = data.data;
+            $("#userInfoDialog .token-message").val(rocketUser.user.token);
+        },complete:function (req,data) {
+            showSendNotify("token has been replaced");
+            setTimeout(hideSendNotify, 2000);
+        }
+    });
+}
+function hideChangePasswordDialog(){
+    $("#changePasswordDialog").hide();
+    $("#modal-backdrop").hide();
+}
+function showChangePasswordDialog(){
+    $("#changePasswordDialog").show();
+    $("#modal-backdrop").show();
+}
+function changePassword(){
+    let old_password = $("#old_password").val();
+    let new_password = $("#new_password").val();
+    showSendNotify("Change Password ...");
+        $.ajax({
+            type: "post",
+            url: changepasswordUrl,
+            contentType : "application/json",
+            data: JSON.stringify({
+                "username":rocketUser.user.username,
+                "old_password":old_password,
+                "new_password":new_password
+            }),
+            success: function (data) {
+                data = unpackResult(data);
+                if (data.code !=200){
+                    $("#changePasswordDialog .login-error-message").text(data.msg);
+                    hideSendNotify();
+                    return;
+                }
+                hideChangePasswordDialog();
+                showSendNotify(data.msg);
+            },complete:function (req,data) {
+                setTimeout(hideSendNotify, 2000);
+            }
+        });
+}
 function logout() {
 
     showSendNotify("logout ...");
@@ -1776,9 +1878,12 @@ function logout() {
             $.ajaxSetup({
                 headers:{"rocket-user-token":""}
             });
+            $("#top-section .login-info .name").text("");
+            $("#top-section .login-info .token").text("");
             localStorage.setItem("rocketUser",JSON.stringify(rocketUser));
             $("#top-section .login-btn").show();
             $("#top-section .login-info").hide();
+            showLoginDialog();
         },complete:function (req,data) {
             hideSendNotify();
         }
@@ -2293,6 +2398,7 @@ function apiPush(apiInfoId) {
                 openMsgModal(data.msg);
                 return;
             }
+            openMsgModal(data.data);
             $("#repository>.buttons>div").text(data.data);
         },complete:function () {
             hideSendNotify();

@@ -6,6 +6,7 @@ import com.github.alenfive.rocketapi.datasource.DataSourceManager;
 import com.github.alenfive.rocketapi.entity.*;
 import com.github.alenfive.rocketapi.entity.vo.IgnoreWrapper;
 import com.github.alenfive.rocketapi.entity.vo.Page;
+import com.github.alenfive.rocketapi.entity.vo.RefreshMapping;
 import com.github.alenfive.rocketapi.extend.*;
 import com.github.alenfive.rocketapi.script.IScriptParse;
 import com.github.alenfive.rocketapi.service.ScriptParseService;
@@ -14,6 +15,7 @@ import com.github.alenfive.rocketapi.utils.PackageUtils;
 import com.github.alenfive.rocketapi.utils.RequestUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.PropertyValues;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
@@ -138,7 +140,7 @@ public class QLRequestMappingFactory {
         }
 
         //加载目录
-        directoryListCache = dataSourceManager.getStoreApiDataSource().listByEntity(ApiDirectory.builder().service(service).build());
+        this.loadDirectoryList(true);
 
         //加载代码方式的API
         List<ApiInfo> codeApiList = this.getPathListForCode();
@@ -185,7 +187,37 @@ public class QLRequestMappingFactory {
     private String buildLocalLink(){
         String content = serverProperties.getServlet().getContextPath() == null?"":serverProperties.getServlet().getContextPath();
         Integer port = serverProperties.getPort() == null?8080:serverProperties.getPort();
-        return "http://localhost:"+ port + ("/"+content+ properties.getBaseRegisterPath()).replace("//","/");
+        String address = serverProperties.getAddress() == null?"localhost":serverProperties.getAddress().toString();
+        return "http://"+address+":"+ port + ("/"+content+ properties.getBaseRegisterPath()).replace("//","/");
+    }
+
+    /**
+     * 重建单一请求的注册与缓存
+     * @param refreshMapping
+     */
+    public void refreshMapping(RefreshMapping refreshMapping) throws NoSuchMethodException {
+
+        //目录刷新
+        loadDirectoryList(true);
+
+        ApiInfo apiInfo = null;
+        //取消历史注册
+        if (refreshMapping.getOldMapping() != null){
+            apiInfo = ApiInfo.builder()
+                    .fullPath(refreshMapping.getOldMapping().getFullPath())
+                    .method(refreshMapping.getOldMapping().getMethod())
+                    .build();
+            unregisterMappingForApiInfo(apiInfo);
+        }
+
+        //重新注册mapping
+        if (refreshMapping.getNewMapping() != null){
+            apiInfo = ApiInfo.builder()
+                    .fullPath(refreshMapping.getNewMapping().getFullPath())
+                    .method(refreshMapping.getNewMapping().getMethod())
+                    .build();
+            registerMappingForApiInfo(apiInfo);
+        }
     }
 
     /**
@@ -408,7 +440,7 @@ public class QLRequestMappingFactory {
     public Collection<ApiInfo> getPathList(boolean isDb) throws Exception {
         if (isDb){
             buildInit();
-            apiInfoCache.refreshNotify();
+            apiInfoCache.refreshNotify(null);
         }
         return apiInfoCache.getAll();
     }

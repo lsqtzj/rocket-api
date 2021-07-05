@@ -9,6 +9,6 @@ public abstract class ApiEntity {
      * 唯一标识符
      */
     @ApiId
-    private String id;
+    public String id;
 
 }
