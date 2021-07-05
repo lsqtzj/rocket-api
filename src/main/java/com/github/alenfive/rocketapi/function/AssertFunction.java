@@ -1,6 +1,7 @@
 package com.github.alenfive.rocketapi.function;
 
 import com.github.alenfive.rocketapi.extend.IAssertException;
+import com.github.alenfive.rocketapi.extend.IUserAuthorization;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -12,6 +13,8 @@ import java.util.Objects;
  */
 @Component
 public class AssertFunction implements IFunction{
+    @Autowired
+    private IUserAuthorization userAuthorization;
 
     @Autowired
     private IAssertException assertException;
@@ -60,5 +63,12 @@ public class AssertFunction implements IFunction{
         }
     }
 
+    public void validateToken(String token,String ... msg){
+        boolean validate = userAuthorization.validateToken(token);
+        if (!validate){
+            String throwMsg = msg.length>0?msg[0]:("token:`"+token+"` is error");
+            assertException.exception(throwMsg,msg);
+        }
+    }
 
 }

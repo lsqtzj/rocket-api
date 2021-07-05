@@ -110,6 +110,26 @@ public class DefaultUserAuthorization implements IUserAuthorization {
             return null;
         }
     }
+
+    @Override
+    public boolean validateToken(String Token) {
+        try {
+            SysUser qsysUser = dataSourceManager.getStoreApiDataSource().
+                    listByEntity(SysUser.builder()
+                            .token(Token)
+                            .build())
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            if (qsysUser!=null) {
+                return true;
+            }
+            return false;
+        }catch (Exception ex){
+            return false;
+        }
+    }
+
     public String makeToken(){
         String token = (System.currentTimeMillis() + new Random().nextInt(999999999)) + "";
         //数据指纹   128位长   16个字节  md5

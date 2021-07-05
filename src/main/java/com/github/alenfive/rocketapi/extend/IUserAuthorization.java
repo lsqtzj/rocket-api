@@ -10,6 +10,6 @@ public interface IUserAuthorization {
     public String validate(String username, String password);
     public String validateToken(String username, String Token);
     public String newToken(String username, String Token);
-
+    public boolean validateToken(String Token);
     public String  changepassword(cPasswordVo loginVo);
 }
