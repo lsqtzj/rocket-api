@@ -1,0 +1,66 @@
+spring:
+  profiles:
+    active: prod
+
+  rocket-api:
+    #基础API注册路径，默认值为/interface-ui
+    base-register-path: /interface-ui
+    #开启页面配置功能，实现在页面中配置springboot application.yml的能力，默认fase
+    config-enabled: true
+    #远程部署密钥，默认为：123456789
+    secret-key: xxx123456789xxx
+    #不启用UI控制界面/interface-ui, 用于生产环境的安全性控制,默认为 true
+    view-enabled: true
+    #不接受远程部署，用于拒绝其他服务向本服务发布接口，默认为 true  ,对应功能 "页面操作"-> "远程发布"
+    sync-enabled: true
+    #驼峰自动转换配置, 默认true
+    map-underscore-to-camel-case: true
+  application:
+    name: rocket-api
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  mvc:
+    format:
+      dateTime: yyyy-MM-dd HH:mm:ss
+  datasource:
+    #        url: jdbc:mysql://localhost:3306/rocket-api?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    #        username: root
+    #        password: 123456789
+    #        driver-class-name: com.mysql.cj.jdbc.Driver
+
+    url: jdbc:sqlserver://10.0.0.1;DatabaseName=rocket-api
+    username: rocket
+    password: rocket123456789#
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+  #  data:
+  #    mongodb:
+  #      host: 127.0.0.1
+  #      database: rocket-api
+  #      username: root
+  #      password: 123456789
+  #      port: 27017
+  thymeleaf:
+    cache: false
+    check-template: true
+    check-template-location: true
+    enabled: true
+    encoding: utf-8
+    mode: HTML5
+    prefix: classpath:/templates/
+    suffix: .html
+  resources:
+    cache:
+      period: 1h
+
+logging:
+  level:
+    com.github.alenfive.rocketapi: debug
+#server:
+#  servlet:
+#    context-path: /rocket-api
+server:
+  compression:
+    enabled: true
