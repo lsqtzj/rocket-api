@@ -1,4 +1,3 @@
-
 ![输入图片说明](https://images.gitee.com/uploads/images/2020/1119/195027_6ae6ae9d_5139840.png "QQ图片20201119194317.png")
 ### 定位
 拒绝CRUD。用尽可能简单的方式，完成尽可能多的需求。通过约定的方式 实现统一的标准。告别加班，拒绝重复劳动，远离搬砖  
@@ -74,3 +73,21 @@ https://alenfive.gitbook.io/rocket-api/faq
 
 ![输入图片说明](https://images.gitee.com/uploads/images/2020/1126/111619_404464b7_5139840.png "屏幕截图.png")
 
+### 修改
+IntelliJ IDEA Community Edition 编辑
+MSSQL 调试通过
+
+application.properties
+Yapi(https://yapi.baidu.com/) 接口配置
+
+发布调试设置
+application.yml
+active: prod / dev
+
+application-dev.yml 调试配置
+
+application-prod.yml 发布配置
+
+sql\mssql.sql Mssql 数据库文件
+
+默认管理员  admin    123
