@@ -50,8 +50,9 @@ public class ApiExample extends ApiEntity{
         String[] params = urlParts[1].split("&");
         JSONObject json = new JSONObject();
         for (String param : params) {
-            String[] keyValue = param.split("=");
-            json.put(keyValue[0], keyValue[1]);
+            String k=param.substring(0,param.indexOf('='));
+            String v=param.substring(param.indexOf('=')+1);
+            json.put(k,v);
         }
         return json;
     }
